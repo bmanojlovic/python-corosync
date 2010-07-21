@@ -96,7 +96,6 @@ cdef class CPG:
         callbacks.cpg_confchg_fn = confchg_fn
         retval = cpg_initialize(&self.handle, &callbacks)
         if retval == corotypes.CS_OK:
-            #print "initialized with handle=%i" % self.handle
             return True
         else:
             print "initialization failed errcode=%i" % retval
@@ -120,7 +119,6 @@ cdef class CPG:
         cdef int retval
         retval = cpg_fd_get(self.handle, &fd_val)
         if retval == corotypes.CS_OK:
-            #print "File Descriptor %i" % fd_val
             return fd_val
         else:
             print "did not received FD... errcode=%i" % retval
@@ -159,10 +157,9 @@ cdef class CPG:
         cdef int retval
         retval = cpg_leave(self.handle,&self.group_name)        
         if retval == corotypes.CS_OK:
-            #print "parting from group %s" % self.group_name.value
             return True
         else:
-            print "did not leave group %s reason code %i" % (self.group_name.value, retval)
+            print "problems leaving group %s, reason code %i" % (self.group_name.value, retval)
             return True
 
     def mcast_joined (self,char *msg):
@@ -182,9 +179,15 @@ cdef class CPG:
         cdef cpg_address member_list[64] # from testcpg.c
         cdef int member_list_entries
         cdef int retval
+        # ==
         # in function bellow it is not needed to use & before member_list
         # as when it is used it wrongly assumes first array value...
         # but hey it works like this so i really do not care
+        # ==
+        # self.group_name is overwriten here but really we do not care about
+        # it as it is more informal then really needed - only one initialization
+        # is performed with this name
+        # anyway reminder here will stay for future consideration...
         retval = cpg_membership_get(self.handle,
                                     &self.group_name,
                                     member_list,
@@ -198,7 +201,7 @@ cdef class CPG:
                 member_list_dict[idx]["pid"] = member_list[idx].pid
                 member_list_dict[idx]["reason"]= member_list[idx].reason
                 idx = idx + 1
-            return ({'member_list' : member_list_dict})
+	    return ({'member_list' : member_list_dict})
         else:
             print "did no received membership info reason code %i" %  retval
             return None
@@ -208,9 +211,9 @@ cdef class CPG:
         cdef unsigned int local_nodeid
         cdef int retval
         retval = cpg_local_get(self.handle, &local_nodeid)
-        print "local_node_id %i" % local_nodeid
         
         if retval == corotypes.CS_OK:
+            print "local_node_id %i" % local_nodeid
             return local_nodeid
         else:
             print "Local get failed reason code %i" % (retval)
