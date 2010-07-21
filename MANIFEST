@@ -1,0 +1,4 @@
+setup.py
+lib/corosync/__init__.py
+lib/corosync/libcpg.pyx
+lib/corosync/test.py
