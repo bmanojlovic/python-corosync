@@ -18,9 +18,9 @@ x.initialize();
 print "initialize"
 x.join()
 print x.local_get()
-x.membership_get()
+members = x.membership_get()
 pp = pprint.PrettyPrinter(indent=4)
-
+pp.pprint(members)
 def change_printer():
     while True:
         item = x.queue_ch.get()

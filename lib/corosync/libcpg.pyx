@@ -179,19 +179,29 @@ cdef class CPG:
             print "message send faild..."
 
     def membership_get (self):
-        cdef cpg_address member_list
+        cdef cpg_address member_list[64] # from testcpg.c
         cdef int member_list_entries
         cdef int retval
+        # in function bellow it is not needed to use & before member_list
+        # as when it is used it wrongly assumes first array value...
+        # but hey it works like this so i really do not care
         retval = cpg_membership_get(self.handle,
                                     &self.group_name,
-                                    &member_list,
+                                    member_list,
                                     &member_list_entries)
         if retval == corotypes.CS_OK:
-            print "currently %i members" % member_list_entries
-            return True
+            member_list_dict = dict()
+            idx = 0
+            while idx < member_list_entries:
+                member_list_dict[idx]=dict()
+                member_list_dict[idx]["nodeid"] = member_list[idx].nodeid
+                member_list_dict[idx]["pid"] = member_list[idx].pid
+                member_list_dict[idx]["reason"]= member_list[idx].reason
+                idx = idx + 1
+            return ({'member_list' : member_list_dict})
         else:
             print "did no received membership info reason code %i" %  retval
-            return False
+            return None
         
 
     def local_get (self):
@@ -201,7 +211,6 @@ cdef class CPG:
         print "local_node_id %i" % local_nodeid
         
         if retval == corotypes.CS_OK:
-            print "Local get succeded %s" % local_nodeid
             return local_nodeid
         else:
             print "Local get failed reason code %i" % (retval)
