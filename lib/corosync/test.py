@@ -7,23 +7,17 @@ from threading import Thread
 import pprint
 
 
-x=libcpg.CPG("test.group")
-def messagerec(data):
-    print data
-
-def cfgchanged(data):
-    print data
-
-x.initialize();
+cpg=libcpg.CPG("test.group")
+cpg.initialize();
 print "initialize"
-x.join()
-print x.local_get()
-members = x.membership_get()
+cpg.join()
+print cpg.local_get()
+members = cpg.membership_get()
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(members)
 def change_printer():
     while True:
-        item = x.queue_ch.get()
+        item = cpg.queue_ch.get()
         pp.pprint (item)
         
 
@@ -33,7 +27,7 @@ cp.start()
 
 def delivery_printer():
     while True:
-        item = x.queue_in.get()
+        item = cpg.queue_in.get()
         pp.pprint (item)
         
 
@@ -43,7 +37,7 @@ dp.start()
 
 def sender():
     while True:
-        x.mcast_joined("i'm sending this!",2)
+        cpg.mcast_joined("i'm sending this!",2)
         time.sleep (10)
         #print "from here item='%s'" % item
         
@@ -53,8 +47,8 @@ o.setDaemon(True)
 o.start()
 
 while not False:
-    XX = x.fd_get()
+    XX = cpg.fd_get()
     XX = [XX]
     blah = select.select(XX,[],[], 100.0)
-    x.dispatch(1)
+    cpg.dispatch(1)
 
