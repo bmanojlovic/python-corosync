@@ -43,7 +43,7 @@ dp.start()
 
 def sender():
     while True:
-        x.mcast_joined("i'm sending this!")
+        x.mcast_joined("i'm sending this!",2)
         time.sleep (10)
         #print "from here item='%s'" % item
         

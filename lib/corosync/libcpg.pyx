@@ -162,15 +162,15 @@ cdef class CPG:
             print "problems leaving group %s, reason code %i" % (self.group_name.value, retval)
             return True
 
-    def mcast_joined (self,char *msg):
-        #cdef cpg_guarantee_t guarantee
+    def mcast_joined (self,char *msg, p_guarantee):
+        cdef cpg_guarantee_t guarantee
+        guarantee = p_guarantee
         cdef iovec *idata
         idata = <iovec*>malloc(sizeof(iovec))
         idata.iov_base = msg
         idata.iov_len = len (msg)
         cdef int retval
-        retval = cpg_mcast_joined(<cpg_handle_t>self.handle,
-                                    <cpg_guarantee_t>2, idata, 1)
+        retval = cpg_mcast_joined(<cpg_handle_t>self.handle, guarantee, idata, 1)
         free(idata)
         if retval != corotypes.CS_OK:
             print "message send faild..."
@@ -201,7 +201,7 @@ cdef class CPG:
                 member_list_dict[idx]["pid"] = member_list[idx].pid
                 member_list_dict[idx]["reason"]= member_list[idx].reason
                 idx = idx + 1
-	    return ({'member_list' : member_list_dict})
+            return ({'member_list' : member_list_dict})
         else:
             print "did no received membership info reason code %i" %  retval
             return None
