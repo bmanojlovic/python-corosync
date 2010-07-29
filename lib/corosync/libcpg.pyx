@@ -8,7 +8,7 @@ cdef void deliver_fn(cpg_handle_t handle,
         uint32_t pid, 
         void *msg, 
         size_t msg_len ):
-    queue_in.put({'group_name' : { 
+    QDeliver.put({'group_name' : { 
                         'value' : group_name.value,
                         'length' : group_name.length},
                     'nodeid' : nodeid,
@@ -51,7 +51,7 @@ cdef void confchg_fn(cpg_handle_t handle,
         joined_list_dict[idx]["reason"]= joined_list[idx].reason
         idx = idx + 1
     
-    queue_ch.put({'group_name' : { 
+    QConfChanged.put({'group_name' : { 
                     'value' : group_name.value,
                     'length' : group_name.length},
                 'member_list' : member_list_dict,
@@ -61,15 +61,26 @@ cdef void confchg_fn(cpg_handle_t handle,
                 'joined_list' : joined_list_dict,
                 'joined_list_entries' : joined_list_entries})
 
-queue_in=None
-queue_ch=None
+
+class CPGException(Exception): pass
+class InitializationException(CPGException): pass
+class FinalizeException(CPGException): pass
+class FdGetException(CPGException): pass
+class DispatchException(CPGException): pass
+class JoinException(CPGException): pass
+class McastJoinedException(CPGException): pass
+class MembershipException(CPGException): pass
+class LeaveException(CPGException): pass
+
+QDeliver=None
+QConfChanged=None
 
 cdef class CPG:
     cdef cpg_handle_t handle
     cdef cpg_guarantee_t guarantee
     cdef cpg_name group_name
-    cdef public object queue_in
-    cdef public object queue_ch
+    cdef public object QDeliver
+    cdef public object QConfChanged
     def __cinit__(self,name):
         cdef int length
         length = len(name)
@@ -77,29 +88,31 @@ cdef class CPG:
         self.group_name.length = length
 
     def __dealloc__(self):
-        """ TODO """
-        self.leave()
-        sleep(1)
-        self.finalize()
+        """ Trying to be nice when stoping"""
+        try:
+            self.leave()
+            sleep(1)
+            self.finalize()
+        except:
+            pass
         
 
     def initialize (self):
         cdef cpg_callbacks_t callbacks
         cdef int retval
-        # hack to make it possible to use queues from callback
-        global queue_in, queue_ch
-        queue_in = Queue()
-        queue_ch = Queue()
-        self.queue_in = queue_in
-        self.queue_ch = queue_ch
+        # hack to make it possible to use ipc queues from callback
+        global QDeliver, QConfChanged
+        QDeliver = Queue()
+        QConfChanged = Queue()
+        self.QDeliver = QDeliver
+        self.QConfChanged = QConfChanged
         callbacks.cpg_deliver_fn = deliver_fn
         callbacks.cpg_confchg_fn = confchg_fn
         retval = cpg_initialize(&self.handle, &callbacks)
         if retval == corotypes.CS_OK:
             return True
         else:
-            print "initialization failed errcode=%i" % retval
-            return False
+            raise InitializationException("Initialization Failed", retval)
         
     def finalize (self):
         cdef int retval
@@ -108,9 +121,8 @@ cdef class CPG:
             #print "Finalized...."
             return True
         else:
-            print "did not finalized... errcode=%i" % retval
-            return False
-
+            raise FinalizeException("Finalize Failed", retval)
+            
         pass
 
     def fd_get (self):
@@ -121,9 +133,8 @@ cdef class CPG:
         if retval == corotypes.CS_OK:
             return fd_val
         else:
-            print "did not received FD... errcode=%i" % retval
-            return None
-        
+            raise FdGetException("Failed in fd_get", retval)
+            
     def context_get (self):
         """ TODO """
         raise NotImplementedError,"Context get not implemented"
@@ -140,8 +151,7 @@ cdef class CPG:
         if retval == corotypes.CS_OK:
             return True
         else:
-            print "dispatching failed reason code %i" % retval
-            return False
+            raise DispatchException("Dispatching Failed", retval)
 
     def join (self):
         cdef int retval
@@ -149,18 +159,15 @@ cdef class CPG:
         if retval == corotypes.CS_OK:
             return True
         else:
-            print "join to group %s failed reason code %i" % (self.group_name.value, retval)
-            return False
-        
-
+            raise JoinException("CPG Join Failed", retval)
+            
     def leave (self):
         cdef int retval
         retval = cpg_leave(self.handle,&self.group_name)        
         if retval == corotypes.CS_OK:
             return True
         else:
-            print "problems leaving group %s, reason code %i" % (self.group_name.value, retval)
-            return True
+            raise LeaveException("Leave attempt failed", retval)
 
     def mcast_joined (self,char *msg, p_guarantee):
         cdef cpg_guarantee_t guarantee
@@ -173,7 +180,7 @@ cdef class CPG:
         retval = cpg_mcast_joined(<cpg_handle_t>self.handle, guarantee, idata, 1)
         free(idata)
         if retval != corotypes.CS_OK:
-            print "message send faild..."
+            raise McastJoinedException("Sending message failed", retval)
 
     def membership_get (self):
         cdef cpg_address member_list[64] # from testcpg.c
@@ -183,11 +190,6 @@ cdef class CPG:
         # in function bellow it is not needed to use & before member_list
         # as when it is used it wrongly assumes first array value...
         # but hey it works like this so i really do not care
-        # ==
-        # self.group_name is overwriten here but really we do not care about
-        # it as it is more informal then really needed - only one initialization
-        # is performed with this name
-        # anyway reminder here will stay for future consideration...
         retval = cpg_membership_get(self.handle,
                                     &self.group_name,
                                     member_list,
@@ -203,8 +205,7 @@ cdef class CPG:
                 idx = idx + 1
             return ({'member_list' : member_list_dict})
         else:
-            print "did no received membership info reason code %i" %  retval
-            return None
+            raise MembershipException("Membership get failed", retval)
         
 
     def local_get (self):
@@ -213,11 +214,9 @@ cdef class CPG:
         retval = cpg_local_get(self.handle, &local_nodeid)
         
         if retval == corotypes.CS_OK:
-            print "local_node_id %i" % local_nodeid
             return local_nodeid
         else:
-            print "Local get failed reason code %i" % (retval)
-            return None
+            raise MembershipException("Local get failed", retval)
 
 
     def flow_control_state_get (self):

@@ -17,7 +17,7 @@ pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(members)
 def change_printer():
     while True:
-        item = cpg.queue_ch.get()
+        item = cpg.QConfChanged.get()
         pp.pprint (item)
         
 
@@ -27,7 +27,7 @@ cp.start()
 
 def delivery_printer():
     while True:
-        item = cpg.queue_in.get()
+        item = cpg.QDeliver.get()
         pp.pprint (item)
         
 
